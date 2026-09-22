@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::types::Action::{Arg, Command};
+use crate::types::Action::{And, Arg, Background, Command, Or, Pipe, Sepr};
 use crate::types::ArgPart::{Literal,Var};
 
 #[derive(Clone)]
@@ -61,7 +61,11 @@ impl Action{
                 s.push(']');
                 s
             },
-            _ => todo!()
+            And(x) => format!("And({})",x.display()),
+            Or(x) => format!("Or({})",x.display()),
+            Sepr(x) => format!("Sepr({})",x.display()),
+            Pipe(x) => format!("Pipe({})",x.display()),
+            Background => String::from("Background")
         }
     }
 }
@@ -144,6 +148,26 @@ impl ActionList{
         s.pop();
         s
     }
+    pub fn and(old: ActionList) -> ActionList{
+        let mut new = ActionList::new();
+        new.push(Action::And(old));
+        new
+    }
+    pub fn or(old: ActionList) -> ActionList{
+        let mut new = ActionList::new();
+        new.push(Action::Or(old));
+        new
+    }
+    pub fn sepr(old: ActionList) -> ActionList{
+        let mut new = ActionList::new();
+        new.push(Action::Sepr(old));
+        new
+    }
+    pub fn pipe(old: ActionList) -> ActionList{
+        let mut new = ActionList::new();
+        new.push(Action::Pipe(old));
+        new
+    }
 }
 
 #[cfg(test)]
@@ -156,18 +180,51 @@ mod tests{
         a.push(Action::Command(String::from("cd")));
         assert_eq!(String::from("Command(cd)"),a.display());
     }
+
     #[test]
     fn arg(){
         let mut a = ActionList::new();
         a.push(Action::Command(String::from("mkdir")));
         a.push_arg(Literal(String::from("dir")));
         assert_eq!("Command(mkdir) Arg[dir]",a.display());
+
         a.push_arg(Var(String::from("var1")));
         assert_eq!("Command(mkdir) Arg[dir,Var(var1)]",a.display());
+
         a.push_arg(Literal(String::from("1")));
         assert_eq!("Command(mkdir) Arg[dir,Var(var1),1]",a.display());
+
         a.push(Action::Arg(Vec::new()));
         a.push_arg(Literal(String::from("dir2")));
         assert_eq!("Command(mkdir) Arg[dir,Var(var1),1] Arg[dir2]",a.display());
+    }
+
+    #[test]
+    fn other_action(){
+        let mut base = ActionList::new();
+        base.push(Action::Command(String::from("mkdir")));
+        base.push_arg(Literal(String::from("dir")));
+        base.push_arg(Var(String::from("var1")));
+        base.push(Action::Arg(Vec::new()));
+        base.push_arg(Literal(String::from("dir2")));
+        let mut a = base.clone();
+        a = ActionList::and(a);
+        a.push(Command(String::from("cd")));
+        assert_eq!("And(Command(mkdir) Arg[dir,Var(var1)] Arg[dir2]) Command(cd)",a.display());
+
+        let mut b = base.clone();
+        b = ActionList::or(b);
+        b.push(Command(String::from("ls")));
+        assert_eq!("Or(Command(mkdir) Arg[dir,Var(var1)] Arg[dir2]) Command(ls)",b.display());
+
+        a = ActionList::sepr(a);
+        a.push(Command(String::from("fastfetch")));
+        assert_eq!("Sepr(And(Command(mkdir) Arg[dir,Var(var1)] Arg[dir2]) Command(cd)) Command(fastfetch)",a.display());
+
+        let mut c = base;
+        c = ActionList::pipe(c);
+        c.push(Command(String::from("grep")));
+        c.push_arg(Var(String::from("var2")));
+        assert_eq!("Pipe(Command(mkdir) Arg[dir,Var(var1)] Arg[dir2]) Command(grep) Arg[Var(var2)]",c.display());
     }
 }
