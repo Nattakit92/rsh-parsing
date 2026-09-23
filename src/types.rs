@@ -5,13 +5,44 @@ use crate::types::Action::{And, Arg, Background, Command, Or, Pipe, Sepr};
 use crate::types::ArgPart::{Literal,Var};
 
 #[derive(Clone)]
-pub struct Condition{
-
+pub enum ValueTypes{
+    Var(String),
+    Literal(String),
+    Int(i32),
+    Float(f32),
+    Boolean(bool),
+    Con(Condition),
+    Cal(Calculate)
 }
 
 #[derive(Clone)]
-pub struct Calculate{
+pub enum Condition{
+    And(Vec<ValueTypes>),
+    Or(Vec<ValueTypes>),
+    Eq(Vec<ValueTypes>),
+    NotEq(Vec<ValueTypes>),
+    Greater(Vec<ValueTypes>),
+    GreaterEq(Vec<ValueTypes>),
+    Less(Vec<ValueTypes>),
+    LessEq(Vec<ValueTypes>),
+    Not(Box<ValueTypes>),
+    Val(Box<ValueTypes>),
+}
 
+#[derive(Clone)]
+pub enum Calculate{
+    //boolean op
+    And(Vec<ValueTypes>),
+    Or(Vec<ValueTypes>),
+    Xor(Vec<ValueTypes>),
+    Not(Vec<ValueTypes>),
+    //normal op
+    Add(Vec<ValueTypes>),
+    Sub(Vec<ValueTypes>),
+    Mult(Vec<ValueTypes>),
+    Div(Vec<ValueTypes>),
+    Pow(Vec<ValueTypes>),
+    Mod(Vec<ValueTypes>)
 }
 
 #[derive(Clone)]
@@ -226,5 +257,7 @@ mod tests{
         c.push(Command(String::from("grep")));
         c.push_arg(Var(String::from("var2")));
         assert_eq!("Pipe(Command(mkdir) Arg[dir,Var(var1)] Arg[dir2]) Command(grep) Arg[Var(var2)]",c.display());
+        c.push(Background);
+        assert_eq!("Pipe(Command(mkdir) Arg[dir,Var(var1)] Arg[dir2]) Command(grep) Arg[Var(var2)] Background",c.display());
     }
 }
