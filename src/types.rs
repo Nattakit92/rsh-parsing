@@ -260,4 +260,19 @@ mod tests{
         c.push(Background);
         assert_eq!("Pipe(Command(mkdir) Arg[dir,Var(var1)] Arg[dir2]) Command(grep) Arg[Var(var2)] Background",c.display());
     }
+
+    #[test]
+    fn next(){
+        let mut a = ActionList::new();
+        a.push(Action::Command(String::from("mkdir")));
+        a.push_arg(Literal(String::from("dir")));
+        a.push_arg(Var(String::from("var1")));
+        a.push(Action::Arg(Vec::new()));
+        a.push_arg(Literal(String::from("dir2")));
+        assert_eq!("Command(mkdir)",a.next().unwrap().to_string());
+        assert_eq!("Arg[dir,Var(var1)] Arg[dir2]",a.display());
+        assert_eq!("Arg[dir,Var(var1)]",a.next().unwrap().to_string());
+        a.next();
+        assert!(a.next().is_none())
+    }
 }
