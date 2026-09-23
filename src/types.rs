@@ -179,6 +179,14 @@ impl ActionList{
         s.pop();
         s
     }
+    pub fn req_com(&self) -> bool{
+        match self.tail.borrow().action {
+            Some(Command(_)) => false,
+            Some(Arg(_)) => false,
+            Some(_) => true,
+            None => true
+        }
+    }
     pub fn and(old: ActionList) -> ActionList{
         let mut new = ActionList::new();
         new.push(Action::And(old));
