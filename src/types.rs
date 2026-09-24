@@ -35,7 +35,7 @@ pub enum Calculate{
     And(Vec<ValueTypes>),
     Or(Vec<ValueTypes>),
     Xor(Vec<ValueTypes>),
-    Not(Vec<ValueTypes>),
+    Not(Box<ValueTypes>),
     //normal op
     Add(Vec<ValueTypes>),
     Sub(Vec<ValueTypes>),
@@ -76,6 +76,7 @@ pub struct ActionList{
     head: Rc<RefCell<ActionNode>>,
     tail: Rc<RefCell<ActionNode>>,
     length: i32,
+    com: bool,
 }
 
 impl Action{
@@ -117,9 +118,12 @@ impl ActionList{
             action: None,
             next: None
         }));
-        ActionList { head: new_node.clone(), tail: new_node, length: 0 }
+        ActionList { head: new_node.clone(), tail: new_node, length: 0 , com: false}
     }
     pub fn push(&mut self, action: Action){
+        if matches!(action,Command(_)){
+            self.com = true;
+        }
         let new_node = Rc::new(RefCell::new(ActionNode {
             action: Some(action),
             next: None
@@ -131,7 +135,22 @@ impl ActionList{
         }
         self.length += 1;
     }
+    pub fn push_none(&mut self){
+        let new_node = Rc::new(RefCell::new(ActionNode {
+            action: None,
+            next: None
+        }));
+        self.tail.borrow_mut().next = Some(new_node.clone());
+        self.tail = new_node;
+        self.length += 1;
+    }
     pub fn set_tail(&mut self, action: Action){
+        if matches!(action,Command(_)){
+            self.com = true;
+        }
+        if self.len() == 0{
+            self.length = 1;
+        }
         self.tail.borrow_mut().action = Some(action);
     }
     pub fn push_arg(&mut self, arg: ArgPart){
@@ -152,6 +171,9 @@ impl ActionList{
     }
     pub fn len(&self) -> i32{
         self.length
+    }
+    pub fn has_com(&self) -> bool{
+        self.com
     }
     pub fn next(&mut self) -> Option<Action>{
         let action = self.head.borrow().action.clone();
@@ -178,14 +200,6 @@ impl ActionList{
         }
         s.pop();
         s
-    }
-    pub fn req_com(&self) -> bool{
-        match self.tail.borrow().action {
-            Some(Command(_)) => false,
-            Some(Arg(_)) => false,
-            Some(_) => true,
-            None => true
-        }
     }
     pub fn and(old: ActionList) -> ActionList{
         let mut new = ActionList::new();
