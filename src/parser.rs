@@ -1,4 +1,5 @@
 use crate::types::{Action, ActionList, ArgPart};
+use crate::parsers::expand;
 
 fn push_str(s: String, result: &mut ActionList){
     if result.has_com(){
@@ -15,9 +16,17 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
     while let Some(c) = s_chars.next() {
         match c {
             ' ' => {
-                push_str(str_slice.clone(), &mut result);
-                str_slice = String::new();
+                if !str_slice.is_empty(){
+                    push_str(str_slice.clone(), &mut result);
+                    str_slice = String::new();
+                }
                 result.push_none();
+            },
+            '$' => {
+                match expand::expand(&mut s_chars) {
+                    Ok(x) => result.push_arg(x),
+                    Err(e) => return Err(e)
+                }
             },
             _ => str_slice.push(c),
         }
@@ -36,5 +45,15 @@ mod tests{
     fn case1(){
         let a = parsing(String::from("cargo install rsh-crate"));
         assert_eq!("Command(cargo) Arg[install] Arg[rsh-crate]",a.unwrap().display());
+    }
+
+    #[test]
+    fn case2(){
+        let a = parsing(String::from("echo $var"));
+        assert_eq!("Command(echo) Arg[Var(var)]",a.unwrap().display());
+        let b = parsing(String::from("echo ${var1}helloworld"));
+        assert_eq!("Command(echo) Arg[Var(var1),helloworld]",b.unwrap().display());
+        let c = parsing(String::from("echo ${var1}${var2} helloworld"));
+        assert_eq!("Command(echo) Arg[Var(var1),Var(var2)] Arg[helloworld]",c.unwrap().display());
     }
 }

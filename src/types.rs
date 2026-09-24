@@ -11,31 +11,22 @@ pub enum ValueTypes{
     Int(i32),
     Float(f32),
     Boolean(bool),
-    Con(Condition),
-    Cal(Calculate)
+    Cal(Operation)
 }
 
 #[derive(Clone)]
-pub enum Condition{
+pub enum Operation{
+    //boolean op
     And(Vec<ValueTypes>),
     Or(Vec<ValueTypes>),
+    Xor(Vec<ValueTypes>),
+    Not(Box<ValueTypes>),
     Eq(Vec<ValueTypes>),
     NotEq(Vec<ValueTypes>),
     Greater(Vec<ValueTypes>),
     GreaterEq(Vec<ValueTypes>),
     Less(Vec<ValueTypes>),
     LessEq(Vec<ValueTypes>),
-    Not(Box<ValueTypes>),
-    Val(Box<ValueTypes>),
-}
-
-#[derive(Clone)]
-pub enum Calculate{
-    //boolean op
-    And(Vec<ValueTypes>),
-    Or(Vec<ValueTypes>),
-    Xor(Vec<ValueTypes>),
-    Not(Box<ValueTypes>),
     //normal op
     Add(Vec<ValueTypes>),
     Sub(Vec<ValueTypes>),
@@ -49,8 +40,7 @@ pub enum Calculate{
 pub enum ArgPart{
     Literal(String),
     Var(String),
-    Test(Condition),
-    ArithEx(Calculate),
+    ArithEx(Operation),
     ComSub(ActionList),
 }
 
