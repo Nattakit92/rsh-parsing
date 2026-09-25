@@ -1,4 +1,3 @@
-use crate::parser::State::Normal;
 use crate::types::{Action, ActionList, ArgPart};
 use crate::parsers::expand;
 
@@ -23,17 +22,35 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
     let mut state = State::Normal;
     while let Some(c) = s_chars.next() {
         match c {
-            ' ' => {
+            ' ' if matches!(state, State::Normal) => {
                 if !str_slice.is_empty(){
                     push_str(str_slice.clone(), &mut result);
                     str_slice = String::new();
                 }
                 result.push_none();
             },
-            '$' => {
+            '$' if matches!(state, State::Normal | State::DoubleQuote) => {
+                if !str_slice.is_empty(){
+                    push_str(str_slice.clone(), &mut result);
+                    str_slice = String::new();
+                }
                 match expand::expand(&mut s_chars) {
                     Ok(x) => result.push_arg(x),
                     Err(e) => return Err(e)
+                }
+            },
+            '\"' => {
+                match state {
+                    State::Normal => state = State::DoubleQuote,
+                    State::DoubleQuote => state = State::Normal,
+                    State::SingleQuote => str_slice.push(c),
+                }
+            },
+            '\'' => {
+                match state {
+                    State::Normal => state = State::SingleQuote,
+                    State::DoubleQuote => str_slice.push(c),
+                    State::SingleQuote => state = State::Normal,
                 }
             },
             _ => str_slice.push(c),
@@ -53,6 +70,10 @@ mod tests{
     fn case1(){
         let a = parsing(String::from("cargo install rsh-crate"));
         assert_eq!("Command(cargo) Arg[install] Arg[rsh-crate]",a.unwrap().display());
+        let b = parsing(String::from("echo \"Hello World!\""));
+        assert_eq!("Command(echo) Arg[Hello World!]",b.unwrap().display());
+        let c = parsing(String::from("echo \'\"Hello World!\"\'"));
+        assert_eq!("Command(echo) Arg[\"Hello World!\"]",c.unwrap().display());
     }
 
     #[test]
@@ -72,5 +93,9 @@ mod tests{
         assert_eq!("Command(cat) Arg[Var(dir_var)]",a.unwrap().display());
         let b = parsing(format!("ls $({})",a_str));
         assert_eq!("Command(ls) Arg[ComSub(Command(cat) Arg[Var(dir_var)])]",b.unwrap().display());
+        let c = parsing(String::from("echo \"Hello! ${name}\""));
+        assert_eq!("Command(echo) Arg[Hello! ,Var(name)]",c.unwrap().display());
+        let c = parsing(String::from("echo \'Hello! ${name}\'"));
+        assert_eq!("Command(echo) Arg[Hello! ${name}]",c.unwrap().display());
     }
 }
