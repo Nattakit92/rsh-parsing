@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::types::Action::{And, Arg, Background, Command, Or, Pipe, Sepr};
-use crate::types::ArgPart::{Literal,Var};
+use crate::types::ArgPart::{ComSub, Literal, Var};
 
 #[derive(Clone)]
 pub enum ValueTypes{
@@ -97,6 +97,7 @@ impl ArgPart{
         match self {
             Literal(x) => String::from(x),
             Var(x) => format!("Var({})",x),
+            ComSub(x) => format!("ComSub({})",x.display()),
             _ => todo!()
         }
     }

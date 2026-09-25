@@ -1,12 +1,13 @@
 use std::{str::Chars};
 
-use crate::types::{ArgPart};
+use crate::{parser::parsing, types::ArgPart};
 
 const BANNED: &[char] = &['{','}','(',')','[',']','@','$','%','.',',','/','\\'];
 
 pub fn expand(s_chars: &mut Chars) -> Result<ArgPart,String>{
     let mut str_slice = String::new();
     match s_chars.next() {
+        Some('(') => return com_sub(s_chars),
         Some('{') => return variable(s_chars),
         Some(x) => str_slice.push(x),
         None => return Ok(ArgPart::Literal(String::from('$')))
@@ -36,4 +37,28 @@ fn variable(s_chars: &mut Chars) -> Result<ArgPart, String>{
         }
     }
     Err(String::from("unclosed parentheses: { opened but never closed"))
+}
+
+fn com_sub(s_chars: &mut Chars) -> Result<ArgPart, String>{
+    let mut str_slice = String::new();
+    match s_chars.next() {
+        Some(x) => str_slice.push(x),
+        None => return Err(String::from("unclosed parentheses: ( opened but never closed"))
+    }
+    while let Some(c) = s_chars.next() {
+        match c {
+            ')' => {
+                match parsing(str_slice) {
+                    Ok(x) => return Ok(ArgPart::ComSub(x)),
+                    Err(e) => return Err(e)
+                }
+            },
+            _ => str_slice.push(c),
+        }
+    }
+    Err(String::from("unclosed parentheses: ( opened but never closed"))
+}
+
+fn evaluate(s_chars: &mut Chars) -> Result<ArgPart, String>{
+    todo!();
 }
