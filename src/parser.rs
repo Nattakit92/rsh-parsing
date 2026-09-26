@@ -12,7 +12,8 @@ fn push_str(s: String, result: &mut ActionList){
 enum State{
     Normal,
     DoubleQuote,
-    SingleQuote
+    SingleQuote,
+    Escape(Box<State>),
 }
 
 pub fn parsing(s: String) -> Result<ActionList,String>{
@@ -39,11 +40,21 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
                     Err(e) => return Err(e)
                 }
             },
+            '$' if matches!(state, State::Escape(_)) => {
+                str_slice.push(c);
+                if let State::Escape(x) = state{
+                    state = *x;
+                }
+            }
             '\"' => {
                 match state {
                     State::Normal => state = State::DoubleQuote,
                     State::DoubleQuote => state = State::Normal,
                     State::SingleQuote => str_slice.push(c),
+                    State::Escape(x) => {
+                        str_slice.push(c);
+                        state = *x
+                    },
                 }
             },
             '\'' => {
@@ -51,8 +62,21 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
                     State::Normal => state = State::SingleQuote,
                     State::DoubleQuote => str_slice.push(c),
                     State::SingleQuote => state = State::Normal,
+                    State::Escape(x) => {
+                        str_slice.push(c);
+                        state = *x
+                    },
                 }
             },
+            '\\' => {
+                match state {
+                    State::Escape(x) => {
+                        str_slice.push(c);
+                        state = *x
+                    },
+                    _ => state = State::Escape(Box::new(state)),
+                }
+            }
             _ => str_slice.push(c),
         }
     }
@@ -74,6 +98,12 @@ mod tests{
         assert_eq!("Command(echo) Arg[Hello World!]",b.unwrap().display());
         let c = parsing(String::from("echo \'\"Hello World!\"\'"));
         assert_eq!("Command(echo) Arg[\"Hello World!\"]",c.unwrap().display());
+        let d = parsing(String::from("echo \"Hello \\\"World\\\"\""));
+        assert_eq!("Command(echo) Arg[Hello \"World\"]",d.unwrap().display());
+        let e = parsing(String::from("echo \\$100"));
+        assert_eq!("Command(echo) Arg[$100]",e.unwrap().display());
+        let e = parsing(String::from("echo \\\\"));
+        assert_eq!("Command(echo) Arg[\\]",e.unwrap().display());
     }
 
     #[test]
