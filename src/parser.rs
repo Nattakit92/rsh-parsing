@@ -90,22 +90,26 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
 mod tests{
     use super::*;
 
+    //test for basic parsing (eg. tokeniser, escape char)
     #[test]
     fn case1(){
-        let a = parsing(String::from("cargo install rsh-crate"));
-        assert_eq!("Command(cargo) Arg[install] Arg[rsh-crate]",a.unwrap().display());
-        let b = parsing(String::from("echo \"Hello World!\""));
-        assert_eq!("Command(echo) Arg[Hello World!]",b.unwrap().display());
-        let c = parsing(String::from("echo \'\"Hello World!\"\'"));
-        assert_eq!("Command(echo) Arg[\"Hello World!\"]",c.unwrap().display());
-        let d = parsing(String::from("echo \"Hello \\\"World\\\"\""));
-        assert_eq!("Command(echo) Arg[Hello \"World\"]",d.unwrap().display());
-        let e = parsing(String::from("echo \\$100"));
-        assert_eq!("Command(echo) Arg[$100]",e.unwrap().display());
-        let e = parsing(String::from("echo \\\\"));
-        assert_eq!("Command(echo) Arg[\\]",e.unwrap().display());
+        let a = parsing(String::from("ls"));
+        assert_eq!("Command(ls)",a.unwrap().display());
+        let b = parsing(String::from("cargo install rsh-crate"));
+        assert_eq!("Command(cargo) Arg[install] Arg[rsh-crate]",b.unwrap().display());
+        let c = parsing(String::from("echo \"Hello World!\""));
+        assert_eq!("Command(echo) Arg[Hello World!]",c.unwrap().display());
+        let d = parsing(String::from("echo \'\"Hello World!\"\'"));
+        assert_eq!("Command(echo) Arg[\"Hello World!\"]",d.unwrap().display());
+        let e = parsing(String::from("echo \"Hello \\\"World\\\"\""));
+        assert_eq!("Command(echo) Arg[Hello \"World\"]",e.unwrap().display());
+        let f = parsing(String::from("echo \\$100"));
+        assert_eq!("Command(echo) Arg[$100]",f.unwrap().display());
+        let g = parsing(String::from("echo \\\\"));
+        assert_eq!("Command(echo) Arg[\\]",g.unwrap().display());
     }
 
+    //test for variables
     #[test]
     fn case2(){
         let a = parsing(String::from("echo $var"));
@@ -116,6 +120,7 @@ mod tests{
         assert_eq!("Command(echo) Arg[Var(var1),Var(var2)] Arg[helloworld]",c.unwrap().display());
     }
 
+    //test for basic expansion
     #[test]
     fn case3(){
         let a_str = String::from("cat $dir_var");
@@ -129,6 +134,7 @@ mod tests{
         assert_eq!("Command(echo) Arg[Hello! ${name}]",c.unwrap().display());
     }
 
+    //test for command substitution
     #[test]
     fn case4(){
         let a = parsing(String::from("cat $(seq 1 1 10)"));

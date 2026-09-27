@@ -1,8 +1,9 @@
 use std::{str::Chars};
 
+use crate::{parsers::evaluate::eval};
 use crate::{parser::parsing, types::ArgPart};
 
-const BANNED: &[char] = &['{','}','(',')','[',']','@','$','%','.',',','/','\\'];
+const BANNED: &[char] = &['{','}','(',')','[',']','@','$','%','.',',','/','\\','!'];
 
 pub fn expand(s_chars: &mut Chars) -> Result<ArgPart,String>{
     let mut str_slice = String::new();
@@ -42,6 +43,7 @@ fn variable(s_chars: &mut Chars) -> Result<ArgPart, String>{
 fn com_sub(s_chars: &mut Chars) -> Result<ArgPart, String>{
     let mut str_slice = String::new();
     match s_chars.next() {
+        Some('(') => return eval(s_chars),
         Some(x) => str_slice.push(x),
         None => return Err(String::from("unclosed parentheses: ( opened but never closed"))
     }
@@ -57,8 +59,4 @@ fn com_sub(s_chars: &mut Chars) -> Result<ArgPart, String>{
         }
     }
     Err(String::from("unclosed parentheses: ( opened but never closed"))
-}
-
-fn evaluate(s_chars: &mut Chars) -> Result<ArgPart, String>{
-    todo!();
 }

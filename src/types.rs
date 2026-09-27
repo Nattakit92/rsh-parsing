@@ -17,23 +17,56 @@ pub enum ValueTypes{
 #[derive(Clone)]
 pub enum Operation{
     //boolean op
-    And(Vec<ValueTypes>),
-    Or(Vec<ValueTypes>),
-    Xor(Vec<ValueTypes>),
-    Not(Box<ValueTypes>),
-    Eq(Vec<ValueTypes>),
-    NotEq(Vec<ValueTypes>),
-    Greater(Vec<ValueTypes>),
-    GreaterEq(Vec<ValueTypes>),
-    Less(Vec<ValueTypes>),
-    LessEq(Vec<ValueTypes>),
+    And(Vec<ValueTypes>), //priority 2(lower value = higher priority)
+    Or(Vec<ValueTypes>),  //priority 3
+    Xor(Vec<ValueTypes>), //priority 3
+    Not(Box<ValueTypes>), //priority 0
+    Eq(Vec<ValueTypes>), //priority 4
+    NotEq(Vec<ValueTypes>), //priority 4
+    Greater(Vec<ValueTypes>), //priority 4
+    GreaterEq(Vec<ValueTypes>), //priority 4
+    Less(Vec<ValueTypes>), //priority 4
+    LessEq(Vec<ValueTypes>), //priority 4
     //normal op
-    Add(Vec<ValueTypes>),
-    Sub(Vec<ValueTypes>),
-    Mult(Vec<ValueTypes>),
-    Div(Vec<ValueTypes>),
-    Pow(Vec<ValueTypes>),
-    Mod(Vec<ValueTypes>)
+    Add(Vec<ValueTypes>), //priority 3
+    Sub(Vec<ValueTypes>), //priority 3
+    Mult(Vec<ValueTypes>), //priority 2
+    Div(Vec<ValueTypes>), //priority 2
+    Pow(Vec<ValueTypes>), //priority 1
+    Mod(Vec<ValueTypes>), //priority 2
+    Val(Box<ValueTypes>),
+}
+
+impl Operation{
+    pub fn from(s: String) -> Operation{
+        if s.len() > 2 && s.starts_with('"') && s.ends_with('"'){
+            let inner = String::from(&s[1..s.len()-1]);
+            return Self::val_from(ValueTypes::Literal(inner))
+        }
+        if let Ok(x) = s.parse::<i32>(){
+            return Self::val_from(ValueTypes::Int(x));
+        }
+        if let Ok(x) = s.parse::<f32>(){
+            return Self::val_from(ValueTypes::Float(x));
+        }
+        if let Ok(x) = s.parse::<bool>(){
+            return Self::val_from(ValueTypes::Boolean(x));
+        }
+        Self::val_from(ValueTypes::Var(s))
+    }
+    fn val_from(val: ValueTypes) -> Operation{
+        Self::Val(Box::new(val))
+    }
+    fn get_priority(&self) -> u8{
+        use Operation::*;
+        match self {
+            Not(_) => 0,
+            Pow(_) => 1,
+            Mod(_) | Mult(_) | Div(_) | And(_) => 2,
+            Add(_) | Sub(_) | Or(_) | Xor(_) => 3,
+            _ => 4
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -53,20 +86,6 @@ pub enum Action{
     Sepr(ActionList),
     Pipe(ActionList),
     Background
-}
-
-#[derive(Clone)]
-pub struct ActionNode{
-    action: Option<Action>,
-    next: Option<Rc<RefCell<ActionNode>>>
-}
-
-#[derive(Clone)]
-pub struct ActionList{
-    head: Rc<RefCell<ActionNode>>,
-    tail: Rc<RefCell<ActionNode>>,
-    length: i32,
-    com: bool,
 }
 
 impl Action{
@@ -90,6 +109,20 @@ impl Action{
             Background => String::from("Background")
         }
     }
+}
+
+#[derive(Clone)]
+pub struct ActionNode{
+    action: Option<Action>,
+    next: Option<Rc<RefCell<ActionNode>>>
+}
+
+#[derive(Clone)]
+pub struct ActionList{
+    head: Rc<RefCell<ActionNode>>,
+    tail: Rc<RefCell<ActionNode>>,
+    length: i32,
+    com: bool,
 }
 
 impl ArgPart{
