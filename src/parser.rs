@@ -128,4 +128,14 @@ mod tests{
         let c = parsing(String::from("echo \'Hello! ${name}\'"));
         assert_eq!("Command(echo) Arg[Hello! ${name}]",c.unwrap().display());
     }
+
+    #[test]
+    fn case4(){
+        let a = parsing(String::from("cat $(seq 1 1 10)"));
+        assert_eq!("Command(cat) Arg[ComSub(Command(seq) Arg[1] Arg[1] Arg[10])]",a.unwrap().display());
+        let b = parsing(String::from("cat file$(seq 1 1 10)"));
+        assert_eq!("Command(cat) Arg[file,ComSub(Command(seq) Arg[1] Arg[1] Arg[10])]",b.unwrap().display());
+        let c = parsing(String::from("cat file$(seq 1 1 10).txt"));
+        assert_eq!("Command(cat) Arg[file,ComSub(Command(seq) Arg[1] Arg[1] Arg[10]),.txt]",c.unwrap().display());
+    }
 }
