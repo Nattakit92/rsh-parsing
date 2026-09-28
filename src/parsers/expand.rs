@@ -2,8 +2,7 @@ use std::{str::Chars};
 
 use crate::{parsers::evaluate::eval};
 use crate::{parser::parsing, types::ArgPart};
-
-const BANNED: &[char] = &['{','}','(',')','[',']','@','$','%','.',',','/','\\','!'];
+use crate::BANNED;
 
 pub fn expand(s_chars: &mut Chars) -> Result<ArgPart,String>{
     let mut str_slice = String::new();

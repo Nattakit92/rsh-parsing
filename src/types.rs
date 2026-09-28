@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::types::Action::{And, Arg, Background, Command, Or, Pipe, Sepr};
-use crate::types::ArgPart::{ComSub, Literal, Var};
+use crate::BANNED;
 
 #[derive(Clone)]
 pub enum ValueTypes{
@@ -12,6 +12,20 @@ pub enum ValueTypes{
     Float(f32),
     Boolean(bool),
     Cal(Operation)
+}
+
+impl ValueTypes {
+    pub fn to_string(&self) -> String{
+        use ValueTypes::*;
+        match self {
+            Var(x) => format!("Var({})",x),
+            Literal(x) => String::from(x),
+            Int(x) => format!("Int({})",x),
+            Float(x) => format!("Float({})",x),
+            Boolean(x) => format!("Boolean({})",x),
+            Cal(x) => format!("ArithEx({})",x.to_string())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -38,21 +52,50 @@ pub enum Operation{
 }
 
 impl Operation{
-    pub fn from(s: String) -> Operation{
-        if s.len() > 2 && s.starts_with('"') && s.ends_with('"'){
-            let inner = String::from(&s[1..s.len()-1]);
-            return Self::val_from(ValueTypes::Literal(inner))
+    pub fn from(s: String) -> Result<Operation,String>{
+        let s_trim = String::from(s.trim());
+        if s_trim.len() > 2 && s_trim.starts_with('"') && s_trim.ends_with('"'){
+            let inner = String::from(&s_trim[1..s_trim.len()-1]);
+            return Ok(Self::val_from(ValueTypes::Literal(inner)))
         }
-        if let Ok(x) = s.parse::<i32>(){
-            return Self::val_from(ValueTypes::Int(x));
+        if let Ok(x) = s_trim.parse::<i32>(){
+            return Ok(Self::val_from(ValueTypes::Int(x)))
         }
-        if let Ok(x) = s.parse::<f32>(){
-            return Self::val_from(ValueTypes::Float(x));
+        if let Ok(x) = s_trim.parse::<f32>(){
+            return Ok(Self::val_from(ValueTypes::Float(x)))
         }
-        if let Ok(x) = s.parse::<bool>(){
-            return Self::val_from(ValueTypes::Boolean(x));
+        if let Ok(x) = s_trim.parse::<bool>(){
+            return Ok(Self::val_from(ValueTypes::Boolean(x)))
         }
-        Self::val_from(ValueTypes::Var(s))
+        if let Some(x) = s_trim.chars().find(|x| BANNED.contains(x)){
+            return Err(format!("invalid char: {}",x));
+        }
+        Ok(Self::val_from(ValueTypes::Var(s_trim)))
+    }
+    pub fn to_string(&self) -> String{
+        use Operation::*;
+        match self {
+            And(x) => format!("And[{}]",Self::string_from(x)),
+            Or(x) => format!("Or[{}]",Self::string_from(x)),
+            Xor(x) => format!("Xor[{}]",Self::string_from(x)),
+            Not(x) => format!("Not({})",x.to_string()),
+            Eq(x) => format!("Eq[{}]",Self::string_from(x)),
+            NotEq(x) => format!("NotEq[{}]",Self::string_from(x)),
+            Greater(x) => format!("Greater[{}]",Self::string_from(x)),
+            GreaterEq(x) => format!("GreaterEq[{}]",Self::string_from(x)),
+            Less(x) => format!("Less[{}]",Self::string_from(x)),
+            LessEq(x) => format!("LessEq[{}]",Self::string_from(x)),
+            Add(x) => format!("Add[{}]",Self::string_from(x)),
+            Sub(x) => format!("Sub[{}]",Self::string_from(x)),
+            Mult(x) => format!("Mult[{}]",Self::string_from(x)),
+            Div(x) => format!("Div[{}]",Self::string_from(x)),
+            Pow(x) => format!("Pow[{}]",Self::string_from(x)),
+            Mod(x) => format!("Mod[{}]",Self::string_from(x)),
+            Val(x) => format!("{}",x.to_string()),
+        }
+    }
+    fn string_from(v: &Vec<ValueTypes>) -> String{
+        v.into_iter().map(|a| a.to_string()).collect::<String>()
     }
     fn val_from(val: ValueTypes) -> Operation{
         Self::Val(Box::new(val))
@@ -75,6 +118,18 @@ pub enum ArgPart{
     Var(String),
     ArithEx(Operation),
     ComSub(ActionList),
+}
+
+impl ArgPart{
+    fn to_string(&self) -> String{
+        use ArgPart::*;
+        match self {
+            Literal(x) => String::from(x),
+            Var(x) => format!("Var({})",x),
+            ComSub(x) => format!("ComSub({})",x.display()),
+            ArithEx(x) => format!("ArithEx({})",x.to_string())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -123,17 +178,6 @@ pub struct ActionList{
     tail: Rc<RefCell<ActionNode>>,
     length: i32,
     com: bool,
-}
-
-impl ArgPart{
-    fn to_string(&self) -> String{
-        match self {
-            Literal(x) => String::from(x),
-            Var(x) => format!("Var({})",x),
-            ComSub(x) => format!("ComSub({})",x.display()),
-            _ => todo!()
-        }
-    }
 }
 
 impl ActionList{
@@ -248,8 +292,9 @@ impl ActionList{
 }
 
 #[cfg(test)]
-mod tests{
+mod actionlist{
     use super::*;
+    use super::ArgPart::*;
 
     #[test]
     fn command(){
@@ -320,5 +365,31 @@ mod tests{
         assert_eq!("Arg[dir,Var(var1)]",a.next().unwrap().to_string());
         a.next();
         assert!(a.next().is_none())
+    }
+}
+
+#[cfg(test)]
+mod operation{
+    use super::*;
+
+    #[test]
+    fn from(){
+        let a = Operation::from(String::from("var"));
+        assert_eq!("Var(var)",a.unwrap().to_string());
+        let b = Operation::from(String::from("\"Some text\""));
+        assert_eq!("Some text",b.unwrap().to_string());
+        let c = Operation::from(String::from("69"));
+        assert_eq!("Int(69)",c.unwrap().to_string());
+        let d = Operation::from(String::from("69.67"));
+        assert_eq!("Float(69.67)",d.unwrap().to_string());
+        let e = Operation::from(String::from("true"));
+        assert_eq!("Boolean(true)",e.unwrap().to_string());
+        let f = Operation::from(String::from("false"));
+        assert_eq!("Boolean(false)",f.unwrap().to_string());
+
+        let g = Operation::from(String::from("var\\"));
+        assert_eq!("invalid char: \\",g.err().unwrap());
+        let h = Operation::from(String::from("some\"thing"));
+        assert_eq!("invalid char: \"",h.err().unwrap());
     }
 }
