@@ -13,6 +13,26 @@ pub enum ValueTypes{
 }
 
 impl ValueTypes {
+    pub fn from(s: String) -> Result<ValueTypes,String>{
+        let s_trim = String::from(s.trim());
+        if s_trim.len() > 2 && s_trim.starts_with('"') && s_trim.ends_with('"'){
+            let inner = String::from(&s_trim[1..s_trim.len()-1]);
+            return Ok(ValueTypes::Literal(inner))
+        }
+        if let Ok(x) = s_trim.parse::<i32>(){
+            return Ok(ValueTypes::Int(x))
+        }
+        if let Ok(x) = s_trim.parse::<f32>(){
+            return Ok(ValueTypes::Float(x))
+        }
+        if let Ok(x) = s_trim.parse::<bool>(){
+            return Ok(ValueTypes::Boolean(x))
+        }
+        if let Some(x) = s_trim.chars().find(|x| BANNED.contains(x)){
+            return Err(format!("invalid char: {}",x));
+        }
+        Ok(ValueTypes::Var(s_trim))
+    }
     pub fn to_string(&self) -> String{
         use ValueTypes::*;
         match self {
@@ -21,12 +41,12 @@ impl ValueTypes {
             Int(x) => format!("Int({})",x),
             Float(x) => format!("Float({})",x),
             Boolean(x) => format!("Boolean({})",x),
-            Cal(x) => format!("ArithEx({})",x.to_string())
+            Cal(x) => x.to_string()
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 pub enum OpType{
     And,Or,Xor,Eq,NotEq,Greater,GreaterEq,Less,LessEq,Add,Sub,Mult,Div,Pow,Mod
 }
@@ -68,39 +88,58 @@ pub enum Operation{
     Op(OpType, Vec<ValueTypes>),
     Not(Box<ValueTypes>),
     Val(Box<ValueTypes>),
+    None
 }
 
 impl Operation{
     pub fn from(s: String) -> Result<Operation,String>{
-        let s_trim = String::from(s.trim());
-        if s_trim.len() > 2 && s_trim.starts_with('"') && s_trim.ends_with('"'){
-            let inner = String::from(&s_trim[1..s_trim.len()-1]);
-            return Ok(Self::val_from(ValueTypes::Literal(inner)))
+        match ValueTypes::from(s) {
+            Ok(x) => Ok(Operation::Val(Box::new(x))),
+            Err(e) => Err(e)
         }
-        if let Ok(x) = s_trim.parse::<i32>(){
-            return Ok(Self::val_from(ValueTypes::Int(x)))
-        }
-        if let Ok(x) = s_trim.parse::<f32>(){
-            return Ok(Self::val_from(ValueTypes::Float(x)))
-        }
-        if let Ok(x) = s_trim.parse::<bool>(){
-            return Ok(Self::val_from(ValueTypes::Boolean(x)))
-        }
-        if let Some(x) = s_trim.chars().find(|x| BANNED.contains(x)){
-            return Err(format!("invalid char: {}",x));
-        }
-        Ok(Self::val_from(ValueTypes::Var(s_trim)))
     }
     pub fn to_string(&self) -> String{
         use Operation::*;
         match self {
             Not(x) => format!("Not({})",x.to_string()),
             Val(x) => format!("{}",x.to_string()),
-            Op(t,v) => format!("{}[{}]",t.to_string(),v.into_iter().map(|a| a.to_string()).collect::<String>())
+            Op(t,v) => format!("{}[{}]",t.to_string(),v.into_iter().map(|a| a.to_string()).collect::<Vec<String>>().join(",")),
+            None => String::new()
         }
     }
     fn val_from(val: ValueTypes) -> Operation{
         Self::Val(Box::new(val))
+    }
+    fn merge(left:Vec<ValueTypes>, op_old: OpType, right:ValueTypes, op_new: OpType) -> Operation{
+        use Operation::*;
+
+        if op_new == op_old{
+            let mut new_left = left;
+            new_left.push(right);
+            return Op(op_new,new_left);
+        }
+
+        if op_old.get_priority() <= op_new.get_priority(){
+            let new_left = ValueTypes::Cal(Op(op_old,left));
+            return Op(op_new,vec![new_left,right]);
+        }
+
+        let mut new_left = left;
+        let left_last = new_left.pop().unwrap();
+        let new_right = ValueTypes::Cal(Op(op_new,vec![left_last,right]));
+        new_left.push(new_right);
+        Op(op_old,new_left)
+    }
+    pub fn push(&mut self, val: ValueTypes, optype: OpType){
+        use Operation::*;
+
+        let old_self = std::mem::replace(self,None);
+        match old_self {
+            Not(_) => *self = Op(optype,vec![ValueTypes::Cal(old_self),val]),
+            Val(x) => *self = Op(optype,vec![*x,val]),
+            Op(op, v) => *self = Self::merge(v, op, val, optype),
+            None => panic!("cannot push to none type")
+        }
     }
 }
 
@@ -366,7 +405,8 @@ mod actionlist{
 
 #[cfg(test)]
 mod operation{
-    use super::*;
+
+use super::*;
 
     #[test]
     fn from(){
@@ -387,5 +427,39 @@ mod operation{
         assert_eq!("invalid char: \\",g.err().unwrap());
         let h = Operation::from(String::from("some\"thing"));
         assert_eq!("invalid char: \"",h.err().unwrap());
+    }
+
+    #[test]
+    fn push(){
+        use OpType::*;
+        use ValueTypes::*;
+        let mut a = Operation::from(String::from("a")).unwrap();
+        // a && b
+        a.push(Var(String::from("b")),And);
+        // a && b
+        assert_eq!("And[Var(a),Var(b)]",a.to_string());
+        // a && b + 12
+        a.push(Int(12),Add);
+        // (a && b) + 12
+        assert_eq!("Add[And[Var(a),Var(b)],Int(12)]",a.to_string());
+        // a && b + 12 * 69
+        a.push(Int(69),Mult);
+        // (a && b) + (12 * 69)
+        assert_eq!("Add[And[Var(a),Var(b)],Mult[Int(12),Int(69)]]",a.to_string());
+
+        let mut b = Operation::from(String::from("a")).unwrap();
+        // a - 69.420
+        b.push(Float(69.420), Sub);
+        // a - 69.420
+        assert_eq!("Sub[Var(a),Float(69.42)]",b.to_string());
+        // a && b + 12 * 69 / (a - 69.420)
+        a.push(Cal(b), Div);
+        // (a && b) + ((12 * 69) / (a - 69.420))
+        assert_eq!("Add[And[Var(a),Var(b)],Div[Mult[Int(12),Int(69)],Sub[Var(a),Float(69.42)]]]",a.to_string());
+
+        let mut c = Operation::from(String::from("9")).unwrap();
+        c.push(Int(10), Add);
+        c.push(Int(21), Add);
+        assert_eq!("Add[Int(9),Int(10),Int(21)]",c.to_string());
     }
 }
