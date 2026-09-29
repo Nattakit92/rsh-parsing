@@ -1,7 +1,5 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-
-use crate::types::Action::{And, Arg, Background, Command, Or, Pipe, Sepr};
 use crate::BANNED;
 
 #[derive(Clone)]
@@ -29,25 +27,46 @@ impl ValueTypes {
 }
 
 #[derive(Clone)]
+pub enum OpType{
+    And,Or,Xor,Eq,NotEq,Greater,GreaterEq,Less,LessEq,Add,Sub,Mult,Div,Pow,Mod
+}
+
+impl OpType{
+    pub fn get_priority(&self) -> u8{
+        use OpType::*;
+        match self {
+            //lower value = higher priority
+            Mod | Mult | Div | And => 1,
+            Add | Sub | Or | Xor => 2,
+            _ => 3
+        }
+    }
+    pub fn to_string(&self) -> String {
+        use OpType::*;
+        match self {
+            And => String::from("And"),
+            Or => String::from("Or"),
+            Xor => String::from("Xor"),
+            Eq => String::from("Eq"),
+            NotEq => String::from("NotEq"),
+            Greater => String::from("Greater"),
+            GreaterEq => String::from("GreaterEq"),
+            Less => String::from("Less"),
+            LessEq => String::from("LessEq"),
+            Add => String::from("Add"),
+            Sub => String::from("Sub"),
+            Mult => String::from("Mult"),
+            Div => String::from("Div"),
+            Pow => String::from("Pow"),
+            Mod => String::from("Mod"),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub enum Operation{
-    //boolean op
-    And(Vec<ValueTypes>), //priority 2(lower value = higher priority)
-    Or(Vec<ValueTypes>),  //priority 3
-    Xor(Vec<ValueTypes>), //priority 3
-    Not(Box<ValueTypes>), //priority 0
-    Eq(Vec<ValueTypes>), //priority 4
-    NotEq(Vec<ValueTypes>), //priority 4
-    Greater(Vec<ValueTypes>), //priority 4
-    GreaterEq(Vec<ValueTypes>), //priority 4
-    Less(Vec<ValueTypes>), //priority 4
-    LessEq(Vec<ValueTypes>), //priority 4
-    //normal op
-    Add(Vec<ValueTypes>), //priority 3
-    Sub(Vec<ValueTypes>), //priority 3
-    Mult(Vec<ValueTypes>), //priority 2
-    Div(Vec<ValueTypes>), //priority 2
-    Pow(Vec<ValueTypes>), //priority 1
-    Mod(Vec<ValueTypes>), //priority 2
+    Op(OpType, Vec<ValueTypes>),
+    Not(Box<ValueTypes>),
     Val(Box<ValueTypes>),
 }
 
@@ -75,40 +94,13 @@ impl Operation{
     pub fn to_string(&self) -> String{
         use Operation::*;
         match self {
-            And(x) => format!("And[{}]",Self::string_from(x)),
-            Or(x) => format!("Or[{}]",Self::string_from(x)),
-            Xor(x) => format!("Xor[{}]",Self::string_from(x)),
             Not(x) => format!("Not({})",x.to_string()),
-            Eq(x) => format!("Eq[{}]",Self::string_from(x)),
-            NotEq(x) => format!("NotEq[{}]",Self::string_from(x)),
-            Greater(x) => format!("Greater[{}]",Self::string_from(x)),
-            GreaterEq(x) => format!("GreaterEq[{}]",Self::string_from(x)),
-            Less(x) => format!("Less[{}]",Self::string_from(x)),
-            LessEq(x) => format!("LessEq[{}]",Self::string_from(x)),
-            Add(x) => format!("Add[{}]",Self::string_from(x)),
-            Sub(x) => format!("Sub[{}]",Self::string_from(x)),
-            Mult(x) => format!("Mult[{}]",Self::string_from(x)),
-            Div(x) => format!("Div[{}]",Self::string_from(x)),
-            Pow(x) => format!("Pow[{}]",Self::string_from(x)),
-            Mod(x) => format!("Mod[{}]",Self::string_from(x)),
             Val(x) => format!("{}",x.to_string()),
+            Op(t,v) => format!("{}[{}]",t.to_string(),v.into_iter().map(|a| a.to_string()).collect::<String>())
         }
-    }
-    fn string_from(v: &Vec<ValueTypes>) -> String{
-        v.into_iter().map(|a| a.to_string()).collect::<String>()
     }
     fn val_from(val: ValueTypes) -> Operation{
         Self::Val(Box::new(val))
-    }
-    fn get_priority(&self) -> u8{
-        use Operation::*;
-        match self {
-            Not(_) => 0,
-            Pow(_) => 1,
-            Mod(_) | Mult(_) | Div(_) | And(_) => 2,
-            Add(_) | Sub(_) | Or(_) | Xor(_) => 3,
-            _ => 4
-        }
     }
 }
 
@@ -145,6 +137,7 @@ pub enum Action{
 
 impl Action{
     fn to_string(&self) -> String{
+        use Action::*;
         match self {
             Command(x) => format!("Command({})",x),
             Arg(x) => {
@@ -189,7 +182,7 @@ impl ActionList{
         ActionList { head: new_node.clone(), tail: new_node, length: 0 , com: false}
     }
     pub fn push(&mut self, action: Action){
-        if matches!(action,Command(_)){
+        if matches!(action, Action::Command(_)){
             self.com = true;
         }
         let new_node = Rc::new(RefCell::new(ActionNode {
@@ -213,7 +206,7 @@ impl ActionList{
         self.length += 1;
     }
     pub fn set_tail(&mut self, action: Action){
-        if matches!(action,Command(_)){
+        if matches!(action, Action::Command(_)){
             self.com = true;
         }
         if self.len() == 0{
@@ -222,6 +215,7 @@ impl ActionList{
         self.tail.borrow_mut().action = Some(action);
     }
     pub fn push_arg(&mut self, arg: ArgPart){
+        use Action::Arg;
         let mut tail_ref = self.tail.borrow_mut();
         match &mut tail_ref.action {
             Some(Arg(x)) => {
@@ -323,6 +317,8 @@ mod actionlist{
 
     #[test]
     fn other_action(){
+        use Action::*;
+
         let mut base = ActionList::new();
         base.push(Action::Command(String::from("mkdir")));
         base.push_arg(Literal(String::from("dir")));
