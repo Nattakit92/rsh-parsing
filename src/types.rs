@@ -66,6 +66,7 @@ impl OpType{
         use OpType::*;
         match self {
             //lower value = higher priority
+            Pow => 0,
             Mod | Mult | Div | BitAnd => 1,
             Add | Sub | BitOr | BitXor => 2,
             LogicAnd | LogicOr => 4,

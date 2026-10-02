@@ -14,6 +14,14 @@ pub fn arithexp(s_chars: &mut Chars) -> Result<ArgPart, String>{
     let mut value = String::new();
     let mut result = Operation::None;
     while let Some(c) = s_chars.next() {
+        if c == '('{
+            let bracket = arithpart(s_chars);
+            match bracket {
+                Ok(x) => merge_op(&mut optype, x, &mut result, &mut state),
+                Err(e) => return Err(e),
+            }
+            continue;
+        }
         if c == ')'{
             match state {
                 State::Close => {
@@ -37,6 +45,43 @@ pub fn arithexp(s_chars: &mut Chars) -> Result<ArgPart, String>{
         }
     }
     Err(String::from("unclosed parentheses: (( opened but never closed"))
+}
+
+fn arithpart(s_chars: &mut Chars) -> Result<ValueTypes,String>{
+    let mut optype = Null;
+    let mut state = State::Normal;
+    let mut value = String::new();
+    let mut result = Operation::None;
+    while let Some(c) = s_chars.next() {
+        if c == '('{
+            let bracket = arithpart(s_chars);
+            match bracket {
+                Ok(x) => merge_op(&mut optype, x, &mut result, &mut state),
+                Err(e) => return Err(e),
+            }
+        }
+        if c == ')'{
+            match state {
+                State::Normal => {
+                    match push_op(&mut optype, &mut value, &mut result, &mut state) {
+                        Ok(_) => return Ok(ValueTypes::Cal(result)),
+                        Err(e) => return Err(e)
+                    }
+                },
+                State::Not => return Err(String::from("arithmetic syntax error: invalid arithmetic operator (error token is \"!\")")),
+                State::Eq => return Err(String::from("arithmetic syntax error: invalid arithmetic operator (error token is \"=\")")),
+                State::Close => panic!()
+            }
+        }
+        if matches!(state, State::Close){
+            return Err(String::from("arithmetic syntax error: unexpected token \")\""));
+        }
+        match parsing(&c, optype, &mut value, &mut result, &mut state) {
+            Ok(x) => optype = x,
+            Err(e) => return Err(e)
+        }
+    }
+    Err(String::from("unclosed parentheses: ( opened but never closed"))
 }
 
 fn parsing(c: &char, mut optype: OpType, value: &mut String, result: &mut Operation, state: &mut State) -> Result<OpType, String>{
@@ -136,4 +181,12 @@ fn push_op(optype: &mut OpType, value: &mut String, result: &mut Operation, stat
     result.push(valtype.unwrap(), optype.clone());
     *optype = Null;
     Ok(())
+}
+
+fn merge_op(optype: &mut OpType, mut value: ValueTypes, result: &mut Operation, state: &mut State){
+    if matches!(state, State::Not){
+        value = ValueTypes::Cal(Operation::Not(Box::from(value)));
+    }
+    result.push(value, optype.clone());
+    *optype = Null;
 }

@@ -177,5 +177,8 @@ mod parsing{
         let h = parsing(String::from("echo $((1+1 == 2 || 9+10 == 21))"));
         //((1+1) == 2) || ((9+10) == 21)
         assert_eq!("Command(echo) Arg[ArithEx(Or[Eq[Add[Int(1),Int(1)],Int(2)],Eq[Add[Int(9),Int(10)],Int(21)]])]",h.unwrap().display());
+        let i = parsing(String::from("echo $((P*(1+r)**t))"));
+        //P((1+r)**t)
+        assert_eq!("Command(echo) Arg[ArithEx(Mult[Var(P),Pow[Add[Int(1),Var(r)],Var(t)]])]",i.unwrap().display());
     }
 }
