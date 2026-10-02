@@ -165,5 +165,17 @@ mod parsing{
         let d = parsing(String::from("echo $((1*2/3))"));
         //(1*2)/3
         assert_eq!("Command(echo) Arg[ArithEx(Div[Mult[Int(1),Int(2)],Int(3)])]",d.unwrap().display());
+        let e = parsing(String::from("echo $((1+1 == 2))"));
+        //(1+1) == 2
+        assert_eq!("Command(echo) Arg[ArithEx(Eq[Add[Int(1),Int(1)],Int(2)])]",e.unwrap().display());
+        let f = parsing(String::from("echo $((1+1 > 2))"));
+        //(1+1) == 2
+        assert_eq!("Command(echo) Arg[ArithEx(Greater[Add[Int(1),Int(1)],Int(2)])]",f.unwrap().display());
+        let g = parsing(String::from("echo $((1+1 == 2 && 9+10 == 21))"));
+        //((1+1) == 2) && ((9+10) == 21)
+        assert_eq!("Command(echo) Arg[ArithEx(And[Eq[Add[Int(1),Int(1)],Int(2)],Eq[Add[Int(9),Int(10)],Int(21)]])]",g.unwrap().display());
+        let h = parsing(String::from("echo $((1+1 == 2 || 9+10 == 21))"));
+        //((1+1) == 2) || ((9+10) == 21)
+        assert_eq!("Command(echo) Arg[ArithEx(Or[Eq[Add[Int(1),Int(1)],Int(2)],Eq[Add[Int(9),Int(10)],Int(21)]])]",h.unwrap().display());
     }
 }

@@ -33,6 +33,12 @@ impl ValueTypes {
         }
         Ok(ValueTypes::Var(s_trim))
     }
+    pub fn not_from(s: &String) -> Result<ValueTypes,String>{
+        match Self::from(s) {
+            Ok(x) => Ok(Self::Cal(Operation::Not(Box::from(x)))),
+            Err(e) => Err(e)
+        }
+    }
     pub fn to_string(&self) -> String{
         use ValueTypes::*;
         match self {
@@ -62,6 +68,7 @@ impl OpType{
             //lower value = higher priority
             Mod | Mult | Div | BitAnd => 1,
             Add | Sub | BitOr | BitXor => 2,
+            LogicAnd | LogicOr => 4,
             _ => 3
         }
     }
