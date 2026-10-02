@@ -13,7 +13,7 @@ pub enum ValueTypes{
 }
 
 impl ValueTypes {
-    pub fn from(s: String) -> Result<ValueTypes,String>{
+    pub fn from(s: &String) -> Result<ValueTypes,String>{
         let s_trim = String::from(s.trim());
         if s_trim.len() > 2 && s_trim.starts_with('"') && s_trim.ends_with('"'){
             let inner = String::from(&s_trim[1..s_trim.len()-1]);
@@ -48,7 +48,11 @@ impl ValueTypes {
 
 #[derive(Clone,PartialEq)]
 pub enum OpType{
-    And,Or,Xor,Eq,NotEq,Greater,GreaterEq,Less,LessEq,Add,Sub,Mult,Div,Pow,Mod
+    LogicAnd, LogicOr,
+    BitAnd, BitOr, BitXor,
+    Eq, NotEq, Greater, GreaterEq, Less, LessEq,
+    Add, Sub, Mult, Div, Pow, Mod,
+    Null
 }
 
 impl OpType{
@@ -56,17 +60,19 @@ impl OpType{
         use OpType::*;
         match self {
             //lower value = higher priority
-            Mod | Mult | Div | And => 1,
-            Add | Sub | Or | Xor => 2,
+            Mod | Mult | Div | BitAnd => 1,
+            Add | Sub | BitOr | BitXor => 2,
             _ => 3
         }
     }
     pub fn to_string(&self) -> String {
         use OpType::*;
         match self {
-            And => String::from("And"),
-            Or => String::from("Or"),
-            Xor => String::from("Xor"),
+            LogicAnd => String::from("And"),
+            LogicOr => String::from("Or"),
+            BitAnd => String::from("BitAnd"),
+            BitOr => String::from("BitOr"),
+            BitXor => String::from("BitXor"),
             Eq => String::from("Eq"),
             NotEq => String::from("NotEq"),
             Greater => String::from("Greater"),
@@ -79,6 +85,7 @@ impl OpType{
             Div => String::from("Div"),
             Pow => String::from("Pow"),
             Mod => String::from("Mod"),
+            Null => String::new()
         }
     }
 }
@@ -93,7 +100,7 @@ pub enum Operation{
 
 impl Operation{
     pub fn from(s: String) -> Result<Operation,String>{
-        match ValueTypes::from(s) {
+        match ValueTypes::from(&s) {
             Ok(x) => Ok(Operation::Val(Box::new(x))),
             Err(e) => Err(e)
         }
@@ -138,7 +145,7 @@ impl Operation{
             Not(_) => *self = Op(optype,vec![ValueTypes::Cal(old_self),val]),
             Val(x) => *self = Op(optype,vec![*x,val]),
             Op(op, v) => *self = Self::merge(v, op, val, optype),
-            None => panic!("cannot push to none type")
+            None => *self = Val(Box::new(val))
         }
     }
 }
@@ -406,7 +413,7 @@ mod actionlist{
 #[cfg(test)]
 mod operation{
 
-use super::*;
+    use super::*;
 
     #[test]
     fn from(){
@@ -435,17 +442,17 @@ use super::*;
         use ValueTypes::*;
         let mut a = Operation::from(String::from("a")).unwrap();
         // a && b
-        a.push(Var(String::from("b")),And);
+        a.push(Var(String::from("b")),BitAnd);
         // a && b
-        assert_eq!("And[Var(a),Var(b)]",a.to_string());
+        assert_eq!("BitAnd[Var(a),Var(b)]",a.to_string());
         // a && b + 12
         a.push(Int(12),Add);
         // (a && b) + 12
-        assert_eq!("Add[And[Var(a),Var(b)],Int(12)]",a.to_string());
+        assert_eq!("Add[BitAnd[Var(a),Var(b)],Int(12)]",a.to_string());
         // a && b + 12 * 69
         a.push(Int(69),Mult);
         // (a && b) + (12 * 69)
-        assert_eq!("Add[And[Var(a),Var(b)],Mult[Int(12),Int(69)]]",a.to_string());
+        assert_eq!("Add[BitAnd[Var(a),Var(b)],Mult[Int(12),Int(69)]]",a.to_string());
 
         let mut b = Operation::from(String::from("a")).unwrap();
         // a - 69.420
@@ -455,7 +462,7 @@ use super::*;
         // a && b + 12 * 69 / (a - 69.420)
         a.push(Cal(b), Div);
         // (a && b) + ((12 * 69) / (a - 69.420))
-        assert_eq!("Add[And[Var(a),Var(b)],Div[Mult[Int(12),Int(69)],Sub[Var(a),Float(69.42)]]]",a.to_string());
+        assert_eq!("Add[BitAnd[Var(a),Var(b)],Div[Mult[Int(12),Int(69)],Sub[Var(a),Float(69.42)]]]",a.to_string());
 
         let mut c = Operation::from(String::from("9")).unwrap();
         c.push(Int(10), Add);

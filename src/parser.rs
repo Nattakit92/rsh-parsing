@@ -76,6 +76,9 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
                     },
                     _ => state = State::Escape(Box::new(state)),
                 }
+            },
+            '&' => {
+
             }
             _ => str_slice.push(c),
         }
@@ -87,7 +90,7 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
 }
 
 #[cfg(test)]
-mod tests{
+mod parsing{
     use super::*;
 
     //test for basic parsing (eg. tokeniser, escape char)
@@ -97,6 +100,7 @@ mod tests{
         assert_eq!("Command(ls)",a.unwrap().display());
         let b = parsing(String::from("cargo install rsh-crate"));
         assert_eq!("Command(cargo) Arg[install] Arg[rsh-crate]",b.unwrap().display());
+
         let c = parsing(String::from("echo \"Hello World!\""));
         assert_eq!("Command(echo) Arg[Hello World!]",c.unwrap().display());
         let d = parsing(String::from("echo \'\"Hello World!\"\'"));
@@ -128,6 +132,7 @@ mod tests{
         assert_eq!("Command(cat) Arg[Var(dir_var)]",a.unwrap().display());
         let b = parsing(format!("ls $({})",a_str));
         assert_eq!("Command(ls) Arg[ComSub(Command(cat) Arg[Var(dir_var)])]",b.unwrap().display());
+
         let c = parsing(String::from("echo \"Hello! ${name}\""));
         assert_eq!("Command(echo) Arg[Hello! ,Var(name)]",c.unwrap().display());
         let c = parsing(String::from("echo \'Hello! ${name}\'"));
@@ -143,5 +148,22 @@ mod tests{
         assert_eq!("Command(cat) Arg[file,ComSub(Command(seq) Arg[1] Arg[1] Arg[10])]",b.unwrap().display());
         let c = parsing(String::from("cat file$(seq 1 1 10).txt"));
         assert_eq!("Command(cat) Arg[file,ComSub(Command(seq) Arg[1] Arg[1] Arg[10]),.txt]",c.unwrap().display());
+    }
+
+    //test for arithmatic expansion
+    #[test]
+    fn case5(){
+        let a = parsing(String::from("echo $((1&2&3))"));
+        //1&2&3
+        assert_eq!("Command(echo) Arg[ArithEx(BitAnd[Int(1),Int(2),Int(3)])]",a.unwrap().display());
+        let b = parsing(String::from("echo $((1 & 2&3))"));
+        //1&2&3
+        assert_eq!("Command(echo) Arg[ArithEx(BitAnd[Int(1),Int(2),Int(3)])]",b.unwrap().display());
+        let c = parsing(String::from("echo $((1+2*3))"));
+        //1+(2*3)
+        assert_eq!("Command(echo) Arg[ArithEx(Add[Int(1),Mult[Int(2),Int(3)]])]",c.unwrap().display());
+        let d = parsing(String::from("echo $((1*2/3))"));
+        //(1*2)/3
+        assert_eq!("Command(echo) Arg[ArithEx(Div[Mult[Int(1),Int(2)],Int(3)])]",d.unwrap().display());
     }
 }

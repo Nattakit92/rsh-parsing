@@ -1,6 +1,6 @@
 use std::{str::Chars};
 
-use crate::{parsers::evaluate::eval};
+use crate::{parsers::evaluate::arithexp};
 use crate::{parser::parsing, types::ArgPart};
 use crate::BANNED;
 
@@ -42,7 +42,7 @@ fn variable(s_chars: &mut Chars) -> Result<ArgPart, String>{
 fn com_sub(s_chars: &mut Chars) -> Result<ArgPart, String>{
     let mut str_slice = String::new();
     match s_chars.next() {
-        Some('(') => return eval(s_chars),
+        Some('(') => return arithexp(s_chars),
         Some(x) => str_slice.push(x),
         None => return Err(String::from("unclosed parentheses: ( opened but never closed"))
     }
