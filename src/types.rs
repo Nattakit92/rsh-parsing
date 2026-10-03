@@ -186,7 +186,7 @@ pub enum Action{
     Or(ActionList),
     Sepr(ActionList),
     Pipe(ActionList),
-    Background
+    Background(ActionList)
 }
 
 impl Action{
@@ -208,7 +208,7 @@ impl Action{
             Or(x) => format!("Or({})",x.display()),
             Sepr(x) => format!("Sepr({})",x.display()),
             Pipe(x) => format!("Pipe({})",x.display()),
-            Background => String::from("Background")
+            Background(x) => format!("Background({})",x.display())
         }
     }
 }
@@ -251,6 +251,9 @@ impl ActionList{
         self.length += 1;
     }
     pub fn push_none(&mut self){
+        if self.tail.borrow().action.is_none(){
+            return;
+        }
         let new_node = Rc::new(RefCell::new(ActionNode {
             action: None,
             next: None
@@ -320,6 +323,11 @@ impl ActionList{
     pub fn and(old: ActionList) -> ActionList{
         let mut new = ActionList::new();
         new.push(Action::And(old));
+        new
+    }
+    pub fn background(old: ActionList) -> ActionList{
+        let mut new = ActionList::new();
+        new.push(Action::Background(old));
         new
     }
     pub fn or(old: ActionList) -> ActionList{
@@ -398,8 +406,6 @@ mod actionlist{
         c.push(Command(String::from("grep")));
         c.push_arg(Var(String::from("var2")));
         assert_eq!("Pipe(Command(mkdir) Arg[dir,Var(var1)] Arg[dir2]) Command(grep) Arg[Var(var2)]",c.display());
-        c.push(Background);
-        assert_eq!("Pipe(Command(mkdir) Arg[dir,Var(var1)] Arg[dir2]) Command(grep) Arg[Var(var2)] Background",c.display());
     }
 
     #[test]

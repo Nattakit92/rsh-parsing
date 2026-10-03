@@ -13,6 +13,7 @@ enum State{
     Normal,
     DoubleQuote,
     SingleQuote,
+    And, Pipe,
     Escape(Box<State>),
 }
 
@@ -22,6 +23,49 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
     let mut str_slice = String::new();
     let mut state = State::Normal;
     while let Some(c) = s_chars.next() {
+        match c {
+            '&' => match state {
+                State::Normal => {
+                    state = State::And;
+                    continue;
+                },
+                State::And => {
+                    state = State::Normal;
+                    result = ActionList::and(result);
+                    result.push_none();
+                    continue;
+                },
+                _ => (),
+            },
+            '|' => match state {
+                State::Normal => {
+                    state = State::Pipe;
+                    continue;
+                },
+                State::Pipe => {
+                    state = State::Normal;
+                    result = ActionList::or(result);
+                    result.push_none();
+                    continue;
+                },
+                _ => (),
+            },
+            _ => match state {
+                State::And => {
+                    state = State::Normal;
+                    result = ActionList::background(result);
+                    result.push_none();
+                    continue;
+                },
+                State::Pipe => {
+                    state = State::Normal;
+                    result = ActionList::pipe(result);
+                    result.push_none();
+                    continue;
+                },
+                _ => (),
+            }
+        }
         match c {
             ' ' if matches!(state, State::Normal) => {
                 if !str_slice.is_empty(){
@@ -55,6 +99,7 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
                         str_slice.push(c);
                         state = *x
                     },
+                    _ => ()
                 }
             },
             '\'' => {
@@ -66,6 +111,7 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
                         str_slice.push(c);
                         state = *x
                     },
+                    _ => ()
                 }
             },
             '\\' => {
@@ -77,11 +123,12 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
                     _ => state = State::Escape(Box::new(state)),
                 }
             },
-            '&' => {
-
-            }
             _ => str_slice.push(c),
         }
+    }
+    match state {
+        State::And => result = ActionList::background(result),
+        _ => (),
     }
     if !str_slice.is_empty(){
         push_str(str_slice, &mut result);
@@ -180,5 +227,18 @@ mod parsing{
         let i = parsing(String::from("echo $((P*(1+r)**t))"));
         //P((1+r)**t)
         assert_eq!("Command(echo) Arg[ArithEx(Mult[Var(P),Pow[Add[Int(1),Var(r)],Var(t)]])]",i.unwrap().display());
+    }
+
+    //test for command chaining
+    #[test]
+    fn case6(){
+        let a = parsing(String::from("echo hello && echo world"));
+        assert_eq!("And(Command(echo) Arg[hello] ) Command(echo) Arg[world]",a.unwrap().display());
+        let b = parsing(String::from("cargo install rsh &"));
+        assert_eq!("Background(Command(cargo) Arg[install] Arg[rsh] )",b.unwrap().display());
+        let c = parsing(String::from("echo hello || echo world"));
+        assert_eq!("Or(Command(echo) Arg[hello] ) Command(echo) Arg[world]",c.unwrap().display());
+        let d = parsing(String::from("cat file.txt | grep helloworld"));
+        assert_eq!("Pipe(Command(cat) Arg[file.txt] ) Command(grep) Arg[helloworld]",d.unwrap().display());
     }
 }
