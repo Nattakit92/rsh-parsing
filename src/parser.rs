@@ -114,6 +114,12 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
                     _ => ()
                 }
             },
+            ';' => {
+                match state {
+                    State::Normal => result = ActionList::sepr(result),
+                    _ => str_slice.push(c),
+                }
+            },
             '\\' => {
                 match state {
                     State::Escape(x) => {
@@ -128,6 +134,9 @@ pub fn parsing(s: String) -> Result<ActionList,String>{
     }
     match state {
         State::And => result = ActionList::background(result),
+        State::Pipe => result = ActionList::pipe(result),
+        State::SingleQuote => return Err(String::from("SingleQuote: open but never closed")),
+        State::DoubleQuote => return Err(String::from("DoubleQuote: open but never closed")),
         _ => (),
     }
     if !str_slice.is_empty(){
@@ -160,6 +169,14 @@ mod parsing{
         assert_eq!("Command(echo) Arg[\\]",g.unwrap().display());
     }
 
+    #[test]
+    fn err_handl_case1(){
+        let a = parsing(String::from("\""));
+        assert_eq!("DoubleQuote: open but never closed",a.err().unwrap());
+        let b = parsing(String::from("echo\'helloworld"));
+        assert_eq!("SingleQuote: open but never closed",b.err().unwrap());
+    }
+
     //test for variables
     #[test]
     fn case2(){
@@ -169,6 +186,14 @@ mod parsing{
         assert_eq!("Command(echo) Arg[Var(var1),helloworld]",b.unwrap().display());
         let c = parsing(String::from("echo ${var1}${var2} helloworld"));
         assert_eq!("Command(echo) Arg[Var(var1),Var(var2)] Arg[helloworld]",c.unwrap().display());
+    }
+
+    #[test]
+    fn err_handl_case2(){
+        let a = parsing(String::from("echo ${var 1}"));
+        assert_eq!("invalid char: space",a.err().unwrap());
+        let b = parsing(String::from("echo ${var1}"));
+        assert_eq!("invalid char: space",b.err().unwrap());
     }
 
     //test for basic expansion
@@ -240,5 +265,7 @@ mod parsing{
         assert_eq!("Or(Command(echo) Arg[hello] ) Command(echo) Arg[world]",c.unwrap().display());
         let d = parsing(String::from("cat file.txt | grep helloworld"));
         assert_eq!("Pipe(Command(cat) Arg[file.txt] ) Command(grep) Arg[helloworld]",d.unwrap().display());
+        let e = parsing(String::from("echo hello ; echo world"));
+        assert_eq!("Sepr(Command(echo) Arg[hello] ) Command(echo) Arg[world]",e.unwrap().display());
     }
 }

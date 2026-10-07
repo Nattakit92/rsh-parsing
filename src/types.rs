@@ -1,7 +1,5 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::BANNED;
-
 #[derive(Clone)]
 pub enum ValueTypes{
     Var(String),
@@ -28,7 +26,13 @@ impl ValueTypes {
         if let Ok(x) = s_trim.parse::<bool>(){
             return Ok(ValueTypes::Boolean(x))
         }
-        if let Some(x) = s_trim.chars().find(|x| BANNED.contains(x)){
+        if let Some(_) = s_trim.chars().find(|x| *x == ' '){
+            return Err(format!("invalid char: space"))
+        }
+        if let Some(x) = s_trim.chars().next() && x.is_ascii_digit(){
+            return Err(String::from("invalid name: cannot start with number"));
+        }
+        if let Some(x) = s_trim.chars().find(|x| !x.is_alphanumeric()){
             return Err(format!("invalid char: {}",x));
         }
         Ok(ValueTypes::Var(s_trim))
