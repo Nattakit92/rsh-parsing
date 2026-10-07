@@ -1,5 +1,6 @@
 use std::{str::Chars};
 
+use crate::valid_var_char;
 use crate::{parsers::evaluate::arithexp};
 use crate::{parser::parsing, types::ArgPart};
 
@@ -11,7 +12,7 @@ pub fn expand(s_chars: &mut Chars) -> Result<ArgPart,String>{
         Some(x) if x.is_ascii_digit() => {
             return Err(String::from("invalid name: cannot start with number"))
         }
-        Some(x) if x.is_alphabetic() => str_slice.push(x),
+        Some(x) if valid_var_char(x) => str_slice.push(x),
         Some(x) => return Err(format!("invalid char: {}",x)),
         None => return Ok(ArgPart::Literal(String::from('$')))
     }
@@ -20,8 +21,8 @@ pub fn expand(s_chars: &mut Chars) -> Result<ArgPart,String>{
             ' ' => {
                 break;
             }
-            x if x.is_ascii_digit() => {
-                return Err(String::from("invalid name: cannot start with number"));
+            x if valid_var_char(x) => {
+                str_slice.push(x);
             },
             x if x.is_alphabetic() => str_slice.push(c),
             _ => return Err(format!("invalid char: {}",c)),
@@ -43,7 +44,7 @@ fn variable(s_chars: &mut Chars) -> Result<ArgPart, String>{
             x if x.is_ascii_digit() => {
                 return Err(String::from("invalid name: cannot start with number"));
             },
-            x if x.is_alphabetic() => str_slice.push(c),
+            x if valid_var_char(x) => str_slice.push(c),
             _ => return Err(format!("invalid char: {}",c))
         }
     }
@@ -55,7 +56,7 @@ fn variable(s_chars: &mut Chars) -> Result<ArgPart, String>{
             ' ' => {
                 return Err(String::from("invalid char: space"));
             },
-            x if x.is_alphanumeric() => str_slice.push(c),
+            x if valid_var_char(x) => str_slice.push(c),
             _ => return Err(format!("invalid char: {}",c))
         }
     }

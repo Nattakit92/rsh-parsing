@@ -192,8 +192,8 @@ mod parsing{
     fn err_handl_case2(){
         let a = parsing(String::from("echo ${var 1}"));
         assert_eq!("invalid char: space",a.err().unwrap());
-        let b = parsing(String::from("echo ${var1}"));
-        assert_eq!("invalid char: space",b.err().unwrap());
+        let b = parsing(String::from("echo ${100%}"));
+        assert_eq!("invalid name: cannot start with number",b.err().unwrap());
     }
 
     //test for basic expansion

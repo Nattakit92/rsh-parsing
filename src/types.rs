@@ -1,5 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
+
+use crate::valid_var_char;
 #[derive(Clone)]
 pub enum ValueTypes{
     Var(String),
@@ -32,7 +34,7 @@ impl ValueTypes {
         if let Some(x) = s_trim.chars().next() && x.is_ascii_digit(){
             return Err(String::from("invalid name: cannot start with number"));
         }
-        if let Some(x) = s_trim.chars().find(|x| !x.is_alphanumeric()){
+        if let Some(x) = s_trim.chars().find(|x| !valid_var_char(*x)){
             return Err(format!("invalid char: {}",x));
         }
         Ok(ValueTypes::Var(s_trim))
