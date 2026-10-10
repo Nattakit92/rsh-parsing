@@ -2,7 +2,7 @@ use std::{str::Chars};
 
 use crate::{valid_var_name};
 use crate::{parsers::evaluate::arithexp};
-use crate::{parser::parse, types::ArgPart};
+use crate::{parse, types::ArgPart};
 
 pub fn expand(s_chars: &mut Chars) -> Result<ArgPart,String>{
     let mut str_slice = String::new();
