@@ -303,7 +303,7 @@ impl ActionList{
     pub fn next(&mut self) -> Option<Action>{
         let action = self.head.borrow().action.clone();
         if self.len() == 0{
-            panic!("The list is empty");
+            return None;
         }
         let next = self.head.borrow().next.clone();
         if next.is_none(){
@@ -328,8 +328,7 @@ impl ActionList{
             cur = node.next.clone();
             s.push(' ');
         }
-        s.pop();
-        s
+        s.trim().to_string()
     }
     pub fn and(old: ActionList) -> ActionList{
         let mut new = ActionList::new();

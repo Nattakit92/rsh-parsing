@@ -17,7 +17,7 @@ enum State{
     Escape(Box<State>),
 }
 
-pub fn parsing(s: String) -> Result<ActionList,String>{
+pub fn parse(s: &str) -> Result<ActionList,String>{
     let mut result = ActionList::new();
     let mut s_chars = s.chars();
     let mut str_slice = String::new();
@@ -152,104 +152,104 @@ mod parsing{
     //test for basic parsing (eg. tokeniser, escape char)
     #[test]
     fn case1(){
-        let a = parsing(String::from("ls"));
+        let a = parse("ls");
         assert_eq!("Command(ls)",a.unwrap().display());
-        let b = parsing(String::from("cargo install rsh-crate"));
+        let b = parse("cargo install rsh-crate");
         assert_eq!("Command(cargo) Arg[install] Arg[rsh-crate]",b.unwrap().display());
 
-        let c = parsing(String::from("echo \"Hello World!\""));
+        let c = parse("echo \"Hello World!\"");
         assert_eq!("Command(echo) Arg[Hello World!]",c.unwrap().display());
-        let d = parsing(String::from("echo \'\"Hello World!\"\'"));
+        let d = parse("echo \'\"Hello World!\"\'");
         assert_eq!("Command(echo) Arg[\"Hello World!\"]",d.unwrap().display());
-        let e = parsing(String::from("echo \"Hello \\\"World\\\"\""));
+        let e = parse("echo \"Hello \\\"World\\\"\"");
         assert_eq!("Command(echo) Arg[Hello \"World\"]",e.unwrap().display());
-        let f = parsing(String::from("echo \\$100"));
+        let f = parse("echo \\$100");
         assert_eq!("Command(echo) Arg[$100]",f.unwrap().display());
-        let g = parsing(String::from("echo \\\\"));
+        let g = parse("echo \\\\");
         assert_eq!("Command(echo) Arg[\\]",g.unwrap().display());
     }
 
     #[test]
     fn err_handl_case1(){
-        let a = parsing(String::from("\""));
+        let a = parse("\"");
         assert_eq!("DoubleQuote: open but never closed",a.err().unwrap());
-        let b = parsing(String::from("echo\'helloworld"));
+        let b = parse("echo\'helloworld");
         assert_eq!("SingleQuote: open but never closed",b.err().unwrap());
     }
 
     //test for variables
     #[test]
     fn case2(){
-        let a = parsing(String::from("echo $var"));
+        let a = parse("echo $var");
         assert_eq!("Command(echo) Arg[Var(var)]",a.unwrap().display());
-        let b = parsing(String::from("echo ${var1}helloworld"));
+        let b = parse("echo ${var1}helloworld");
         assert_eq!("Command(echo) Arg[Var(var1),helloworld]",b.unwrap().display());
-        let c = parsing(String::from("echo ${var1}${var2} helloworld"));
+        let c = parse("echo ${var1}${var2} helloworld");
         assert_eq!("Command(echo) Arg[Var(var1),Var(var2)] Arg[helloworld]",c.unwrap().display());
     }
 
     #[test]
     fn err_handl_case2(){
-        let a = parsing(String::from("echo ${var 1}"));
+        let a = parse("echo ${var 1}");
         assert_eq!("invalid char: space",a.err().unwrap());
-        let b = parsing(String::from("echo ${100%}"));
+        let b = parse("echo ${100%}");
         assert_eq!("invalid name: cannot start with number",b.err().unwrap());
     }
 
     //test for basic expansion
     #[test]
     fn case3(){
-        let a_str = String::from("cat $dir_var");
-        let a = parsing(a_str.clone());
+        let a_str = "cat $dir_var";
+        let a = parse(a_str);
         assert_eq!("Command(cat) Arg[Var(dir_var)]",a.unwrap().display());
-        let b = parsing(format!("ls $({})",a_str));
+        let b = parse(&format!("ls $({})",a_str));
         assert_eq!("Command(ls) Arg[ComSub(Command(cat) Arg[Var(dir_var)])]",b.unwrap().display());
 
-        let c = parsing(String::from("echo \"Hello! ${name}\""));
+        let c = parse("echo \"Hello! ${name}\"");
         assert_eq!("Command(echo) Arg[Hello! ,Var(name)]",c.unwrap().display());
-        let c = parsing(String::from("echo \'Hello! ${name}\'"));
+        let c = parse("echo \'Hello! ${name}\'");
         assert_eq!("Command(echo) Arg[Hello! ${name}]",c.unwrap().display());
     }
 
     //test for command substitution
     #[test]
     fn case4(){
-        let a = parsing(String::from("cat $(seq 1 1 10)"));
+        let a = parse("cat $(seq 1 1 10)");
         assert_eq!("Command(cat) Arg[ComSub(Command(seq) Arg[1] Arg[1] Arg[10])]",a.unwrap().display());
-        let b = parsing(String::from("cat file$(seq 1 1 10)"));
+        let b = parse("cat file$(seq 1 1 10)");
         assert_eq!("Command(cat) Arg[file,ComSub(Command(seq) Arg[1] Arg[1] Arg[10])]",b.unwrap().display());
-        let c = parsing(String::from("cat file$(seq 1 1 10).txt"));
-        assert_eq!("Command(cat) Arg[file,ComSub(Command(seq) Arg[1] Arg[1] Arg[10]),.txt]",c.unwrap().display());
+        let c = parse("cat file$(seq 1 1 10.txt)");
+        assert_eq!("Command(cat) Arg[file,ComSub(Command(seq) Arg[1] Arg[1] Arg[10.txt])]",c.unwrap().display());
     }
 
     //test for arithmatic expansion
     #[test]
     fn case5(){
-        let a = parsing(String::from("echo $((1&2&3))"));
+        let a = parse("echo $((1&2&3))");
         //1&2&3
         assert_eq!("Command(echo) Arg[ArithEx(BitAnd[Int(1),Int(2),Int(3)])]",a.unwrap().display());
-        let b = parsing(String::from("echo $((1 & 2&3))"));
+        let b = parse("echo $((1 & 2&3))");
         //1&2&3
         assert_eq!("Command(echo) Arg[ArithEx(BitAnd[Int(1),Int(2),Int(3)])]",b.unwrap().display());
-        let c = parsing(String::from("echo $((1+2*3))"));
+        let c = parse("echo $((1+2*3))");
         //1+(2*3)
         assert_eq!("Command(echo) Arg[ArithEx(Add[Int(1),Mult[Int(2),Int(3)]])]",c.unwrap().display());
-        let d = parsing(String::from("echo $((1*2/3))"));
+        let d = parse("echo $((1*2/3))");
         //(1*2)/3
         assert_eq!("Command(echo) Arg[ArithEx(Div[Mult[Int(1),Int(2)],Int(3)])]",d.unwrap().display());
-        let e = parsing(String::from("echo $((1+1 == 2))"));
+        let e = parse("echo $((1+1 == 2))");
         //(1+1) == 2
         assert_eq!("Command(echo) Arg[ArithEx(Eq[Add[Int(1),Int(1)],Int(2)])]",e.unwrap().display());
-        let f = parsing(String::from("echo $((1+1 > 2))"));
+        let f = parse("echo $((1+1 > 2))");
         //(1+1) == 2
         assert_eq!("Command(echo) Arg[ArithEx(Greater[Add[Int(1),Int(1)],Int(2)])]",f.unwrap().display());
-        let g = parsing(String::from("echo $((1+1 == 2 && 9+10 == 21))"));
+        let g = parse("echo $((1+1 == 2 && 9+10 == 21))");
         //((1+1) == 2) && ((9+10) == 21)
         assert_eq!("Command(echo) Arg[ArithEx(And[Eq[Add[Int(1),Int(1)],Int(2)],Eq[Add[Int(9),Int(10)],Int(21)]])]",g.unwrap().display());
-        let h = parsing(String::from("echo $((1+1 == 2 || 9+10 == 21))"));
+        let h = parse("echo $((1+1 == 2 || 9+10 == 21))");
         //((1+1) == 2) || ((9+10) == 21)
         assert_eq!("Command(echo) Arg[ArithEx(Or[Eq[Add[Int(1),Int(1)],Int(2)],Eq[Add[Int(9),Int(10)],Int(21)]])]",h.unwrap().display());
-        let i = parsing(String::from("echo $((P*(1+r)**t))"));
+        let i = parse("echo $((P*(1+r)**t))");
         //P((1+r)**t)
         assert_eq!("Command(echo) Arg[ArithEx(Mult[Var(P),Pow[Add[Int(1),Var(r)],Var(t)]])]",i.unwrap().display());
     }
@@ -257,15 +257,15 @@ mod parsing{
     //test for command chaining
     #[test]
     fn case6(){
-        let a = parsing(String::from("echo hello && echo world"));
-        assert_eq!("And(Command(echo) Arg[hello] ) Command(echo) Arg[world]",a.unwrap().display());
-        let b = parsing(String::from("cargo install rsh &"));
-        assert_eq!("Background(Command(cargo) Arg[install] Arg[rsh] )",b.unwrap().display());
-        let c = parsing(String::from("echo hello || echo world"));
-        assert_eq!("Or(Command(echo) Arg[hello] ) Command(echo) Arg[world]",c.unwrap().display());
-        let d = parsing(String::from("cat file.txt | grep helloworld"));
-        assert_eq!("Pipe(Command(cat) Arg[file.txt] ) Command(grep) Arg[helloworld]",d.unwrap().display());
-        let e = parsing(String::from("echo hello ; echo world"));
-        assert_eq!("Sepr(Command(echo) Arg[hello] ) Command(echo) Arg[world]",e.unwrap().display());
+        let a = parse("echo hello && echo world");
+        assert_eq!("And(Command(echo) Arg[hello]) Command(echo) Arg[world]",a.unwrap().display());
+        let b = parse("cargo install rsh &");
+        assert_eq!("Background(Command(cargo) Arg[install] Arg[rsh])",b.unwrap().display());
+        let c = parse("echo hello || echo world");
+        assert_eq!("Or(Command(echo) Arg[hello]) Command(echo) Arg[world]",c.unwrap().display());
+        let d = parse("cat file.txt | grep helloworld");
+        assert_eq!("Pipe(Command(cat) Arg[file.txt]) Command(grep) Arg[helloworld]",d.unwrap().display());
+        let e = parse("echo hello ; echo world");
+        assert_eq!("Sepr(Command(echo) Arg[hello]) Command(echo) Arg[world]",e.unwrap().display());
     }
 }

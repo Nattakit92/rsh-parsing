@@ -2,7 +2,7 @@ use std::{str::Chars};
 
 use crate::{valid_var_name};
 use crate::{parsers::evaluate::arithexp};
-use crate::{parser::parsing, types::ArgPart};
+use crate::{parser::parse, types::ArgPart};
 
 pub fn expand(s_chars: &mut Chars) -> Result<ArgPart,String>{
     let mut str_slice = String::new();
@@ -27,6 +27,7 @@ pub fn expand(s_chars: &mut Chars) -> Result<ArgPart,String>{
 }
 
 fn variable(s_chars: &mut Chars) -> Result<ArgPart, String>{
+    s_chars.next();
     let mut str_slice = String::new();
     for c in s_chars {
         match c {
@@ -46,6 +47,7 @@ fn variable(s_chars: &mut Chars) -> Result<ArgPart, String>{
 }
 
 fn com_sub(s_chars: &mut Chars) -> Result<ArgPart, String>{
+    s_chars.next();
     let mut str_slice = String::new();
     match s_chars.next() {
         Some('(') => return arithexp(s_chars),
@@ -55,7 +57,7 @@ fn com_sub(s_chars: &mut Chars) -> Result<ArgPart, String>{
     for c in s_chars {
         match c {
             ')' => {
-                match parsing(str_slice) {
+                match parse(&str_slice) {
                     Ok(x) => return Ok(ArgPart::ComSub(x)),
                     Err(e) => return Err(e)
                 }

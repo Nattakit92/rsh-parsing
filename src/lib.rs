@@ -1,7 +1,23 @@
+//! `rsh_parser` is a library created to help parse the input for [`RSH`](https://crates.io/crates/rsh-crate)
+//! # Quick Start
+//! ```
+//! // create a new ActionList with command echo "Hello!${name}"
+//! let parser = rsh_parser::parser::parse("echo \"Hello!${name}\"");
+//! assert!(parser.is_ok());
+//! let mut act_list = parser.unwrap();
+//! // we can visualize the value in act_list using display()
+//! assert_eq!("Command(echo) Arg[Hello!,Var(name)]", act_list.display());
+//! // we can also extract value from act_list using next()
+//! use rsh_parser::types::*;
+//! assert_eq!(Action::Command("echo".to_string()), act_list.next().unwrap());
+//! assert_eq!(Action::Arg(vec![ArgPart::Literal("Hello!".to_string()),ArgPart::Var("name".to_string())]), act_list.next().unwrap());
+//! ```
+
 #![allow(dead_code)]
 pub mod parser;
 pub mod types;
 mod parsers;
+
 
 fn valid_var_char(c: char) -> bool{
     c.is_alphanumeric() || c == '_' || c=='-'
