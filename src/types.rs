@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::valid_var_char;
-#[derive(Clone)]
+#[derive(Clone,Debug,PartialEq)]
 pub enum ValueTypes{
     Var(String),
     Literal(String),
@@ -58,7 +58,7 @@ impl ValueTypes {
     }
 }
 
-#[derive(Clone,PartialEq)]
+#[derive(Clone,Debug,PartialEq)]
 pub enum OpType{
     LogicAnd, LogicOr,
     BitAnd, BitOr, BitXor,
@@ -104,7 +104,7 @@ impl OpType{
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug,PartialEq)]
 pub enum Operation{
     Op(OpType, Vec<ValueTypes>),
     Not(Box<ValueTypes>),
@@ -164,7 +164,7 @@ impl Operation{
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug,PartialEq)]
 pub enum ArgPart{
     Literal(String),
     Var(String),
@@ -184,7 +184,7 @@ impl ArgPart{
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug,PartialEq)]
 pub enum Action{
     Command(String),
     Arg(Vec<ArgPart>),
@@ -219,13 +219,13 @@ impl Action{
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug,PartialEq)]
 pub struct ActionNode{
     action: Option<Action>,
     next: Option<Rc<RefCell<ActionNode>>>
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug,PartialEq)]
 pub struct ActionList{
     head: Rc<RefCell<ActionNode>>,
     tail: Rc<RefCell<ActionNode>>,
@@ -251,10 +251,10 @@ impl ActionList{
         }));
         self.tail.borrow_mut().next = Some(new_node.clone());
         self.tail = new_node;
-        if self.length == 0{
+        self.length += 1;
+        if self.length == 1{
             self.next();
         }
-        self.length += 1;
     }
     pub fn push_none(&mut self){
         if self.tail.borrow().action.is_none(){
@@ -302,14 +302,19 @@ impl ActionList{
     }
     pub fn next(&mut self) -> Option<Action>{
         let action = self.head.borrow().action.clone();
-        if self.len() == 1{
-            panic!("");
+        if self.len() == 0{
+            panic!("The list is empty");
         }
         let next = self.head.borrow().next.clone();
         if next.is_none(){
-            return None;
+            self.head = Rc::new(RefCell::new(ActionNode {
+                action: None,
+                next: None
+            }));
+            self.tail = self.head.clone();
+        }else{
+            self.head = next.unwrap();
         }
-        self.head = next.unwrap();
         action
     }
     pub fn display(&self) -> String{
