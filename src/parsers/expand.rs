@@ -20,7 +20,7 @@ pub fn expand(s_chars: &mut Chars) -> Result<ArgPart,String>{
             _ => str_slice.push(c),
         }
     }
-    if let Err(e) = valid_var_name(&str_slice){
+    if let Err(e) = valid_var_name(&str_slice) && str_slice.parse::<i32>().is_err(){
         return Err(e);
     }
     Ok(ArgPart::Var(str_slice))
@@ -32,7 +32,7 @@ fn variable(s_chars: &mut Chars) -> Result<ArgPart, String>{
     for c in s_chars {
         match c {
             '}' => {
-                if let Err(e) = valid_var_name(&str_slice){
+                if let Err(e) = valid_var_name(&str_slice) && str_slice.parse::<i32>().is_err(){
                     return Err(e);
                 }
                 return Ok(ArgPart::Var(str_slice));

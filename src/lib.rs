@@ -12,6 +12,12 @@
 //! assert_eq!(Action::Command("echo".to_string()), act_list.next().unwrap());
 //! assert_eq!(Action::Arg(vec![ArgPart::Literal("Hello!".to_string()),ArgPart::Var("name".to_string())]), act_list.next().unwrap());
 //! ```
+//! Current supported features include:
+//! * Tokenizer
+//! * Command Separators (eg. ;, &)
+//! * Control Operators / Conditional Execution (eg. &&, ||)
+//! * Expansion (eg. variable, command substitution)
+//! * Typed Arguments (eg. String, Int, Float)
 
 #![allow(dead_code)]
 pub mod types;
