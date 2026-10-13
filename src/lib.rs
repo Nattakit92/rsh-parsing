@@ -23,6 +23,9 @@
 pub mod types;
 mod parsers;
 
+use crate::types::{Action, ActionList, ArgPart};
+use crate::parsers::expand;
+
 fn valid_var_char(c: char) -> bool{
     c.is_alphanumeric() || c == '_' || c=='-'
 }
@@ -55,9 +58,6 @@ pub fn valid_var_name(s: &str) -> Result<(),String>{
     }
     Ok(())
 }
-
-use crate::types::{Action, ActionList, ArgPart};
-use crate::parsers::expand;
 
 fn push_str(s: String, result: &mut ActionList){
     if result.has_com(){

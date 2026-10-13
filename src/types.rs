@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
+use crate::valid_var_name;
 
-use crate::valid_var_char;
 #[derive(Clone,Debug,PartialEq)]
 pub enum ValueTypes{
     Var(String),
@@ -34,8 +34,8 @@ impl ValueTypes {
         if let Some(x) = s_trim.chars().next() && x.is_ascii_digit(){
             return Err(String::from("invalid name: cannot start with number"));
         }
-        if let Some(x) = s_trim.chars().find(|x| !valid_var_char(*x)){
-            return Err(format!("invalid char: {}",x));
+        if let Err(x) = valid_var_name(&s_trim){
+            return Err(x);
         }
         Ok(ValueTypes::Var(s_trim))
     }
@@ -185,6 +185,26 @@ impl ArgPart{
 }
 
 #[derive(Clone,Debug,PartialEq)]
+pub struct RedirectPart{
+    filename: String,
+    /// File descriptor:
+    ///
+    /// 0 = stdin
+    /// 1 = stdout
+    /// 2 = stderr
+    filedes: u8,
+}
+
+impl RedirectPart{
+    pub fn from(filename: String, filedes: u8) -> Self{
+        RedirectPart { filename, filedes }
+    }
+    pub fn to_string(&self) -> String{
+        format!("({},{})",self.filename,self.filedes)
+    }
+}
+
+#[derive(Clone,Debug,PartialEq)]
 pub enum Action{
     Command(String),
     Arg(Vec<ArgPart>),
@@ -192,7 +212,8 @@ pub enum Action{
     Or(ActionList),
     Sepr(ActionList),
     Pipe(ActionList),
-    Background(ActionList)
+    Background(ActionList),
+    OutRedirect(ActionList, Vec<RedirectPart>),
 }
 
 impl Action{
@@ -214,7 +235,15 @@ impl Action{
             Or(x) => format!("Or({})",x.display()),
             Sepr(x) => format!("Sepr({})",x.display()),
             Pipe(x) => format!("Pipe({})",x.display()),
-            Background(x) => format!("Background({})",x.display())
+            Background(x) => format!("Background({})",x.display()),
+            OutRedirect(x, f) => {
+                let mut s = String::from("Out(");
+                s += &x.display();
+                for p in f{
+                    s = s + ">" + &p.to_string();
+                }
+                s
+            }
         }
     }
 }
@@ -329,6 +358,23 @@ impl ActionList{
             s.push(' ');
         }
         s.trim().to_string()
+    }
+    pub fn out_redirect(old: ActionList, filename: String, filedes: u8) -> ActionList{
+        use Action::OutRedirect;
+        let mut tail_ref = old.tail.borrow_mut();
+        match &mut tail_ref.action {
+            Some(OutRedirect(_, v)) => {
+                v.push(RedirectPart { filename, filedes });
+                drop(tail_ref);
+                return old;
+            },
+            _ => {
+                drop(tail_ref);
+                let mut new = ActionList::new();
+                new.push(OutRedirect(old, vec![RedirectPart{filename,filedes}]));
+                return new;
+            }
+        }
     }
     pub fn and(old: ActionList) -> ActionList{
         let mut new = ActionList::new();
