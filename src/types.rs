@@ -242,6 +242,7 @@ impl Action{
                 for p in f{
                     s = s + ">" + &p.to_string();
                 }
+                s.push(')');
                 s
             }
         }
@@ -364,15 +365,46 @@ impl ActionList{
         let mut tail_ref = old.tail.borrow_mut();
         match &mut tail_ref.action {
             Some(OutRedirect(_, v)) => {
-                v.push(RedirectPart { filename, filedes });
+                v.push(RedirectPart {filename, filedes});
                 drop(tail_ref);
                 return old;
             },
             _ => {
                 drop(tail_ref);
                 let mut new = ActionList::new();
-                new.push(OutRedirect(old, vec![RedirectPart{filename,filedes}]));
+                new.push(OutRedirect(old, vec![RedirectPart{filename, filedes}]));
                 return new;
+            }
+        }
+    }
+    pub fn out_redirect_op(old: ActionList, filename: String, filedes: Option<u8>) -> Result<ActionList,String>{
+        use Action::OutRedirect;
+        let mut tail_ref = old.tail.borrow_mut();
+        match &mut tail_ref.action {
+            Some(OutRedirect(_, v)) => {
+                if let Ok(x) = filename.parse::<usize>(){
+                    if v.len() >= x && filedes.is_some(){
+                        v.push(RedirectPart::from(v[x-1].filename.clone(), filedes.unwrap()));
+                    }
+                }else{
+                    if filedes.is_none(){
+                        v.push(RedirectPart::from(filename.clone(),1));
+                        v.push(RedirectPart::from(filename,2));
+                    }else{
+                        return Err(format!("Requested redirection to '{}', which is not a valid descriptor",filename))
+                    }
+                }
+                drop(tail_ref);
+                Ok(old)
+            },
+            _ => {
+                if filedes.is_none(){
+                    drop(tail_ref);
+                    let new = Self::out_redirect(old, filename.clone(), 1);
+                    Ok(Self::out_redirect(new, filename, 2))
+                }else{
+                    Err(format!("Requested redirection to '{}', which is not a valid descriptor",filename))
+                }
             }
         }
     }
@@ -477,6 +509,30 @@ mod actionlist{
         assert_eq!("Arg[dir,Var(var1)]",a.next().unwrap().to_string());
         a.next();
         assert!(a.next().is_none())
+    }
+
+    #[test]
+    fn out_redirect(){
+        let mut a = ActionList::new();
+        a.push(Action::Command(String::from("echo")));
+        a.push_arg(Literal(String::from("hello world!")));
+        a = ActionList::out_redirect(a, String::from("file.txt"), 1);
+        assert_eq!("Out(Command(echo) Arg[hello world!]>(file.txt,1))",a.display());
+        a = ActionList::out_redirect(a, String::from("file_err.txt"), 2);
+        assert_eq!("Out(Command(echo) Arg[hello world!]>(file.txt,1)>(file_err.txt,2))",a.display());
+
+        let mut b = ActionList::new();
+        b.push(Action::Command(String::from("echo")));
+        b.push_arg(Literal(String::from("hello world!")));
+        b = ActionList::out_redirect_op(b, String::from("file.txt"), None).unwrap();
+        assert_eq!("Out(Command(echo) Arg[hello world!]>(file.txt,1)>(file.txt,2))",b.display());
+
+        let mut c = ActionList::new();
+        c.push(Action::Command(String::from("echo")));
+        c.push_arg(Literal(String::from("hello world!")));
+        c = ActionList::out_redirect(c, String::from("file.txt"), 1);
+        c = ActionList::out_redirect_op(c, 1.to_string(), Some(2)).unwrap();
+        assert_eq!("Out(Command(echo) Arg[hello world!]>(file.txt,1)>(file.txt,2))",c.display());
     }
 }
 
